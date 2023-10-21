@@ -17,6 +17,7 @@ import java.io.IOException;
 import static javax.swing.JOptionPane.showMessageDialog;
 
 public class GUI extends JFrame {
+    /*Комоненты GUI*/
     private JButton fileLoadButton;
     private JTextArea scrollStepTextArea;
     private JButton enterScrollStepButton;
@@ -42,7 +43,6 @@ public class GUI extends JFrame {
     private JLabel loadedFileLabel;
     private JLabel scrollStepLabel;
     private JLabel loadedFileNameLabel;
-    private JPanel zoomPanel;
     private JPanel zoomImagePanel;
     private JButton incrementZoomButton;
     private JButton decrementZoomButton;
@@ -51,44 +51,54 @@ public class GUI extends JFrame {
     private JPanel zoomConfigPanel;
     private JLabel zoomValueLabel;
     private JScrollPane overviewImagePane;
-    private JPanel overviewImagePanel;
+    private JScrollPane zoomedImagePane;
+    private JLabel imageLabel;
+    private JLabel overviewImageLabel;
+    private JLabel zoomedImageLabel;
+    private JRadioButton wasChosenBeforeButton;
+    /*Переменные для логики приложения*/
     private boolean isFileLoaded;
+    private boolean isInterpolating;
+    private boolean isNormalisation;
     private int[][] lightnessMatrix;
     private int imageHeight;
     private int imageWidth;
-    private int currentShift;
-
-    private BufferedImage currentImage;
-    private ImageIcon imageIcon;
-    private JLabel imageLabel;
-    private JRadioButton wasChosenBeforeButton;
-    private int currentScrollbarPos;
-    private BufferedImage zoomedImage;
     private int[][] zoomBox;
     private int zoomBoxSize;
+    private BufferedImage image;
+    private ImageIcon imageIcon;
+
+
+    private BufferedImage zoomedImage;
+    private ImageIcon zoomedImageIcon;
+
+
 
     private int[] zoomValues;
     private int zoomIndex;
-    private boolean isInterpolating;
-    private boolean isNormalisation;
+
     private BufferedImage overviewImage;
     private ImageIcon overviewImageIcon;
-    private JLabel overviewImageLabel;
+    private int currentShift;
+    private int currentScrollbarPos;
 
     public GUI() {
         zoomIndex = 0;
-        zoomValues = new int[]{1,2,4,5,8,10};
+        zoomValues = new int[]{1,2,3,4,5,6,7,8,9,10, 20, 30, 40, 50};
         zoomBoxSize = ZoomProcessor.ZOOMED_IMAGE_SIZE/zoomValues[zoomIndex];
         zoomBox = new int[zoomBoxSize][zoomBoxSize];
         overviewImage = new BufferedImage(100,600, BufferedImage.TYPE_3BYTE_BGR);
-        zoomedImage = new BufferedImage(ZoomProcessor.ZOOMED_IMAGE_SIZE, ZoomProcessor.ZOOMED_IMAGE_SIZE, BufferedImage.TYPE_3BYTE_BGR);
+        zoomedImage = new BufferedImage(zoomBoxSize * zoomValues[zoomIndex], zoomBoxSize * zoomValues[zoomIndex], BufferedImage.TYPE_3BYTE_BGR);
         imageScrollPane.getVerticalScrollBar().setUnitIncrement(100);
         imageLabel = new JLabel();
+        zoomedImageLabel = new JLabel();
+        zoomedImageIcon = new ImageIcon();
         overviewImageLabel = new JLabel();
         overviewImageIcon = new ImageIcon();
         imageIcon = new ImageIcon();
         imageLabel.setIcon(imageIcon);
         overviewImageLabel.setIcon(overviewImageIcon);
+        zoomedImageLabel.setIcon(zoomedImageIcon);
         ButtonGroup group = new ButtonGroup();
         group.add(a0RadioButton);
         group.add(a1RadioButton);
@@ -157,7 +167,9 @@ public class GUI extends JFrame {
                                 ZoomProcessor.paintZoomedImageWithShift(zoomedImage, zoomBox, zoomValues[zoomIndex],currentShift, isInterpolating);
                             }
 
-                            zoomImagePanel.getGraphics().drawImage(zoomedImage, 0, 0, null);
+                            zoomedImageIcon.setImage(zoomedImage);
+                            zoomedImagePane.setViewportView(zoomedImageLabel);
+                            zoomedImagePane.updateUI();
                         }
                     }
                 }
@@ -183,7 +195,7 @@ public class GUI extends JFrame {
                             imageHeight = lightnessMatrix.length;
                             imageWidth = lightnessMatrix[0].length;
                             /*Создаём объект картинки, которую потом будем перерисовывать*/
-                            currentImage = new BufferedImage(imageWidth, imageHeight, BufferedImage.TYPE_3BYTE_BGR);
+                            image = new BufferedImage(imageWidth, imageHeight, BufferedImage.TYPE_3BYTE_BGR);
                             drawImageWithShift(currentShift);
                             /*отображение картинки в интерфейсе*/
 
@@ -246,6 +258,7 @@ public class GUI extends JFrame {
                     zoomValueLabel.setText(String.valueOf(zoomValues[zoomIndex]));
                     zoomBoxSize = ZoomProcessor.ZOOMED_IMAGE_SIZE/zoomValues[zoomIndex];
                     zoomBox = new int[zoomBoxSize][zoomBoxSize];
+                    zoomedImage = new BufferedImage(zoomBoxSize * zoomValues[zoomIndex], zoomBoxSize * zoomValues[zoomIndex], BufferedImage.TYPE_3BYTE_BGR );
                 }
             }
         });
@@ -257,6 +270,7 @@ public class GUI extends JFrame {
                     zoomValueLabel.setText(String.valueOf(zoomValues[zoomIndex]));
                     zoomBoxSize = ZoomProcessor.ZOOMED_IMAGE_SIZE/zoomValues[zoomIndex];
                     zoomBox = new int[zoomBoxSize][zoomBoxSize];
+                    zoomedImage = new BufferedImage(zoomBoxSize * zoomValues[zoomIndex], zoomBoxSize * zoomValues[zoomIndex], BufferedImage.TYPE_3BYTE_BGR );
                 }
             }
         });
@@ -275,7 +289,7 @@ public class GUI extends JFrame {
     }
 
     private void showImageOnUI() {
-        imageIcon.setImage(currentImage);
+        imageIcon.setImage(image);
         imageScrollPane.setViewportView(imageLabel);
         overviewImageIcon.setImage(overviewImage);
         overviewImagePane.setViewportView(overviewImageLabel);
@@ -286,7 +300,7 @@ public class GUI extends JFrame {
     private void drawImageWithShift(int shift) {
         for (int y = 0; y < imageHeight; y++) {
             for (int x = 0; x < imageWidth; x++) {
-                currentImage.setRGB(x, y, calculateRGB(lightnessMatrix[y][x], shift));
+                image.setRGB(x, y, calculateRGB(lightnessMatrix[y][x], shift));
             }
         }
     }
@@ -309,7 +323,7 @@ public class GUI extends JFrame {
                 int lightness = (newRangeMaxDiffCurrentRangeMin * lightnessMatrix[y][x])
                         / maxCurrentRangeDiffMinCurrentRange + currentRangeMin;
                 int rgb = (0b11111111 << 24) | (lightness << 16) | (lightness << 8) | lightness;
-                currentImage.setRGB(x,y,rgb);
+                image.setRGB(x,y,rgb);
             }
         }
 

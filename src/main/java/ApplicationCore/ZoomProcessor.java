@@ -19,8 +19,8 @@ public class ZoomProcessor {
         int imageHeight = image.getHeight();
         int imageWidth = image.getWidth();
         int[][] lightnessMatrix = new int[imageHeight][imageWidth];
-        for (int YzoomedImage = 0, YzoomBox = 0; YzoomedImage < imageHeight; YzoomedImage+= zoom, YzoomBox++) {
-            for (int XzoomedImage = 0, XzoomBox = 0; XzoomedImage < imageWidth; XzoomedImage+= zoom, XzoomBox++) {
+        for (int YzoomedImage = 0, YzoomBox = 0; YzoomedImage < imageHeight ; YzoomedImage+= zoom, YzoomBox++) {
+            for (int XzoomedImage = 0, XzoomBox = 0; XzoomedImage < imageWidth ; XzoomedImage+= zoom, XzoomBox++) {
                 int lightness = (zoomLightness[YzoomBox][XzoomBox] >> shift) & 0xFF;;
                 for (int y = YzoomedImage; y < YzoomedImage + zoom; y++) {
                     for (int x = XzoomedImage; x < XzoomedImage + zoom; x++) {
@@ -30,18 +30,39 @@ public class ZoomProcessor {
             }
         }
         if(isInterpolating){
-            for (int y = 0; y < imageHeight - zoom; y+= zoom) {
-                for (int x = 0; x < imageWidth - zoom; x+= zoom) {
-                    int I11 = lightnessMatrix[y][x] & 0xFF;
-                    int I12 = lightnessMatrix[y][x + zoom]& 0xFF ;
-                    int I21 = lightnessMatrix[y + zoom][x] & 0xFF;
-                    int I22 = lightnessMatrix[y + zoom][x + zoom]& 0xFF ;
+            int I11;
+            int I12;
+            int I21;
+            int I22;
+            int y;
+            int x;
+            for (y = 0; y < imageHeight - zoom; y+= zoom) {
+                for (x = 0; x < imageWidth - zoom; x+= zoom) {
+                    I11 = lightnessMatrix[y][x] & 0xFF;
+                    I12 = lightnessMatrix[y][x + zoom]& 0xFF ;
+                    I21 = lightnessMatrix[y + zoom][x] & 0xFF;
+                    I22 = lightnessMatrix[y + zoom][x + zoom]& 0xFF ;
                     for (int yInner = y; yInner < y + zoom; yInner++) {
                         lightnessMatrix[yInner][x] = (int)(YbyXlinierInterpolation(0, I11 , zoom, I21, yInner - y));
                         lightnessMatrix[yInner][x + zoom - 1] = (int)(YbyXlinierInterpolation(0, I12, zoom, I22, yInner - y));
                         for (int xInner = x + 1; xInner < x + zoom - 1; xInner++) {
                             lightnessMatrix[yInner][xInner] = (int)YbyXlinierInterpolation(0, lightnessMatrix[yInner][x], zoom - 1, lightnessMatrix[yInner][x + zoom - 1], xInner - x) ;
                         }
+                    }
+                }
+                //интерполирование правой полоски
+                for (int yInner = y; yInner < y + zoom; yInner++) {
+                    lightnessMatrix[yInner][x] = (int)(YbyXlinierInterpolation(0, lightnessMatrix[y][x], zoom, lightnessMatrix[y + zoom][x], yInner - y));
+                    for (int xInner = x + 1; xInner < x + zoom; xInner++) {
+                        lightnessMatrix[yInner][xInner] = lightnessMatrix[yInner][x];
+                    }
+                }
+            }
+            //интерполирование нижней полоскию
+            for (x = 0; x < imageWidth - zoom; x+= zoom) {
+                for (int yInner = y; yInner < y + zoom; yInner++) {
+                    for (int xInner = x + 1; xInner < x + zoom; xInner++) {
+                        lightnessMatrix[yInner][xInner] = (int)(YbyXlinierInterpolation(0, lightnessMatrix[yInner][x],zoom, lightnessMatrix[yInner][x + zoom], xInner - x));
                     }
                 }
             }
