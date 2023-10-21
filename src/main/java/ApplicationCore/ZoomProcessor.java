@@ -1,20 +1,42 @@
 package ApplicationCore;
 
-import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.lang.reflect.Array;
 import java.util.Arrays;
+
+import static ApplicationCore.ZoomProcessor.linierInterpolation;
 
 public class ZoomProcessor {
     public static final int ZOOMED_IMAGE_SIZE = 400;
-    public static void fillZoomBox(int[][] zoomBox ,int[][] lightness ,int currentY, int currentX, int zoom){
+
+    /*Метод заполнения матрицы увеличиваемого участка
+    Принимает:
+    - Заполняемую матрицу увеличиваемого участка
+    - Матрицу яркости картинки
+    - Текущую координату Y
+    - Текущую координату X
+    Контракт метода:
+    - Метод принимает только корректные значения X и Y,
+    необходимо обеспечить корректную поставку этих значений из вне
+    */
+    public static void fillZoomBox(int[][] zoomBox ,int[][] lightness ,int currentY, int currentX){
         for (int zoomBoxY = 0; zoomBoxY < zoomBox.length; zoomBoxY++) {
             for (int zoomBoxX = 0; zoomBoxX < zoomBox[zoomBoxY].length; zoomBoxX++) {
                 zoomBox[zoomBoxY][zoomBoxX] = lightness[zoomBoxY + currentY][zoomBoxX + currentX];
             }
         }
     }
-
+    /*Метод отрисовки увеличенного изображения с заданным сдвигом
+     Принимает:
+      - Изображение, на котором будет происходить отрисовка
+      - Матрицу яркости увеличенного участка изображения
+      - Значение увеличения
+      - Сдвиг
+      - Флаг - интерполирование
+      Алгоритм работы метода:
+      - Вычисления яркости со сдвигом
+      - Если флаг - интерполирование - интерполируем яркости
+      - Отрисовываем изображение по полученным яркостям
+    */
     public static void paintZoomedImageWithShift(BufferedImage image, int[][] zoomLightness, int zoom, int shift, boolean isInterpolating){
         int imageHeight = image.getHeight();
         int imageWidth = image.getWidth();
@@ -29,52 +51,26 @@ public class ZoomProcessor {
                 }
             }
         }
+        /*Интерполирование изображения*/
         if(isInterpolating){
-            int I11;
-            int I12;
-            int I21;
-            int I22;
-            int y;
-            int x;
-            for (y = 0; y < imageHeight - zoom; y+= zoom) {
-                for (x = 0; x < imageWidth - zoom; x+= zoom) {
-                    I11 = lightnessMatrix[y][x] & 0xFF;
-                    I12 = lightnessMatrix[y][x + zoom]& 0xFF ;
-                    I21 = lightnessMatrix[y + zoom][x] & 0xFF;
-                    I22 = lightnessMatrix[y + zoom][x + zoom]& 0xFF ;
-                    for (int yInner = y; yInner < y + zoom; yInner++) {
-                        lightnessMatrix[yInner][x] = (int)(YbyXlinierInterpolation(0, I11 , zoom, I21, yInner - y));
-                        lightnessMatrix[yInner][x + zoom - 1] = (int)(YbyXlinierInterpolation(0, I12, zoom, I22, yInner - y));
-                        for (int xInner = x + 1; xInner < x + zoom - 1; xInner++) {
-                            lightnessMatrix[yInner][xInner] = (int)YbyXlinierInterpolation(0, lightnessMatrix[yInner][x], zoom - 1, lightnessMatrix[yInner][x + zoom - 1], xInner - x) ;
-                        }
-                    }
-                }
-                //интерполирование правой полоски
-                for (int yInner = y; yInner < y + zoom; yInner++) {
-                    lightnessMatrix[yInner][x] = (int)(YbyXlinierInterpolation(0, lightnessMatrix[y][x], zoom, lightnessMatrix[y + zoom][x], yInner - y));
-                    for (int xInner = x + 1; xInner < x + zoom; xInner++) {
-                        lightnessMatrix[yInner][xInner] = lightnessMatrix[yInner][x];
-                    }
-                }
-            }
-            //интерполирование нижней полоскию
-            for (x = 0; x < imageWidth - zoom; x+= zoom) {
-                for (int yInner = y; yInner < y + zoom; yInner++) {
-                    for (int xInner = x + 1; xInner < x + zoom; xInner++) {
-                        lightnessMatrix[yInner][xInner] = (int)(YbyXlinierInterpolation(0, lightnessMatrix[yInner][x],zoom, lightnessMatrix[yInner][x + zoom], xInner - x));
-                    }
-                }
-            }
+            interpolate(lightnessMatrix, zoom);
         }
-        for (int y = 0; y < imageHeight; y++) {
-            for (int x = 0; x < imageWidth; x++) {
-                int light = lightnessMatrix[y][x];
-                image.setRGB(x,y,light << 16 | light << 8 | light);
-            }
-        }
+        /*Вывод изображения на картинку*/
+        paintImage(image, lightnessMatrix);
     }
 
+    /*Метод отрисовки увеличенного изображения с нормированием
+      Принимает:
+      - Изображение, на котором будет происходить отрисовка
+      - Матрицу яркости увеличенного участка изображения
+      - Значение увеличения
+      - Флаг - интерполирование
+      Алгоритм работы метода:
+      - Выявление максимума, минимума яркости на участке изображения
+      - Нормирование яркости
+      - Если флаг - интерполирование - интерполируем яркости
+      - Отрисовываем изображение по полученным яркостям
+    */
     public static void paintZoomedImageWithNormalisation(BufferedImage image, int[][] zoomLightness, int zoom, boolean isInterpolating){
         int min = Arrays.stream(zoomLightness).flatMapToInt(Arrays::stream).min().getAsInt();
         int max = Arrays.stream(zoomLightness).flatMapToInt(Arrays::stream).max().getAsInt();
@@ -93,54 +89,86 @@ public class ZoomProcessor {
                 }
             }
         }
-        /*Блок интерполирования*/
+        /*Интерполирование изображения*/
         if(isInterpolating){
-            int I11;
-            int I12;
-            int I21;
-            int I22;
-            int y;
-            int x;
-            for (y = 0; y < imageHeight - zoom; y+= zoom) {
-                for (x = 0; x < imageWidth - zoom; x+= zoom) {
-                        I11 = lightnessMatrix[y][x];
-                        I12 = lightnessMatrix[y][x + zoom];
-                        I21 = lightnessMatrix[y + zoom][x] ;
-                        I22 = lightnessMatrix[y + zoom][x + zoom];
-                        for (int yInner = y; yInner < y + zoom; yInner++) {
-                            lightnessMatrix[yInner][x] = (int)(YbyXlinierInterpolation(0, I11 , zoom, I21, yInner - y));
-                            lightnessMatrix[yInner][x + zoom - 1] = (int)(YbyXlinierInterpolation(0, I12, zoom, I22, yInner - y));
-                            for (int xInner = x + 1; xInner < x + zoom - 1; xInner++) {
-                                lightnessMatrix[yInner][xInner] = (int)YbyXlinierInterpolation(0, lightnessMatrix[yInner][x], zoom - 1, lightnessMatrix[yInner][x + zoom - 1], xInner - x) ;
-                            }
-                        }
-                }
-                //интерполирование правой полоски
+            interpolate(lightnessMatrix, zoom);
+        }
+        /*Вывод изображения на картинку*/
+        paintImage(image, lightnessMatrix);
+    }
+
+    /*Метод интерполирования изображения
+    Принимает:
+    - вычисленные ранее значения яркостей в диапазоне от 0 до 255
+    в виде матрицы
+    - значение увеличения
+    Алгоритм работы метода:
+    - Последовательно итерируясь по увеличенным пикселям
+    производим интерполяцию:
+    1. вычисляем угловые значения яркостей
+    2. последовательно итерируясь по увеличинному пикселю по строчно
+    вычисляем крайнее левое и крайнее правое значения яркостей в строке
+    3. далее применяем линейную интерполяцию для всех элементов внутри строки
+    4. после интерполирования по угловым значениям у нас остаётся справа
+    и снизу полосы, которые не были интерполированы. Их интерполируем отдельно.
+    */
+    private static void interpolate(int[][] lightnessMatrix, int zoom){
+        int I11, I12, I21, I22;
+        int x,y;
+        for (y = 0; y < lightnessMatrix.length - zoom; y+= zoom) {
+            for (x = 0; x < lightnessMatrix.length - zoom; x+= zoom) {
+                I11 = lightnessMatrix[y][x];
+                I12 = lightnessMatrix[y][x + zoom];
+                I21 = lightnessMatrix[y + zoom][x] ;
+                I22 = lightnessMatrix[y + zoom][x + zoom];
                 for (int yInner = y; yInner < y + zoom; yInner++) {
-                    lightnessMatrix[yInner][x] = (int)(YbyXlinierInterpolation(0, lightnessMatrix[y][x], zoom, lightnessMatrix[y + zoom][x], yInner - y));
-                    for (int xInner = x + 1; xInner < x + zoom; xInner++) {
-                        lightnessMatrix[yInner][xInner] = lightnessMatrix[yInner][x];
+                    lightnessMatrix[yInner][x] = (int)(linierInterpolation(0, I11 , zoom, I21, yInner - y));
+                    lightnessMatrix[yInner][x + zoom - 1] = (int)(linierInterpolation(0, I12, zoom, I22, yInner - y));
+                    for (int xInner = x + 1; xInner < x + zoom - 1; xInner++) {
+                        lightnessMatrix[yInner][xInner] = (int) linierInterpolation(0, lightnessMatrix[yInner][x], zoom - 1, lightnessMatrix[yInner][x + zoom - 1], xInner - x) ;
                     }
                 }
             }
-            //интерполирование нижней полоскию
-            for (x = 0; x < imageWidth - zoom; x+= zoom) {
-                for (int yInner = y; yInner < y + zoom; yInner++) {
-                    for (int xInner = x + 1; xInner < x + zoom; xInner++) {
-                        lightnessMatrix[yInner][xInner] = (int)(YbyXlinierInterpolation(0, lightnessMatrix[yInner][x],zoom, lightnessMatrix[yInner][x + zoom], xInner - x));
-                    }
+            //интерполирование правой полоски
+            for (int yInner = y; yInner < y + zoom; yInner++) {
+                lightnessMatrix[yInner][x] = (int)(linierInterpolation(0, lightnessMatrix[y][x], zoom, lightnessMatrix[y + zoom][x], yInner - y));
+                for (int xInner = x + 1; xInner < x + zoom; xInner++) {
+                    lightnessMatrix[yInner][xInner] = lightnessMatrix[yInner][x];
                 }
             }
         }
-        /*Блок вывода изображения на картинку*/
-        for (int y = 0; y < imageHeight; y++) {
-            for (int x = 0; x < imageWidth; x++) {
-                int light = lightnessMatrix[y][x] & 0xFF;
+        //интерполирование нижней полоскию
+        for (x = 0; x < lightnessMatrix.length - zoom; x+= zoom) {
+            for (int yInner = y; yInner < y + zoom; yInner++) {
+                for (int xInner = x + 1; xInner < x + zoom; xInner++) {
+                    lightnessMatrix[yInner][xInner] = (int)(linierInterpolation(0, lightnessMatrix[yInner][x],zoom, lightnessMatrix[yInner][x + zoom], xInner - x));
+                }
+            }
+        }
+    }
+    /*Метод закраски изображения
+    Принимает:
+    - Изображение которое нужно закрасить
+    - Матрица яркостей для закраски изображения
+    */
+    private static void paintImage(BufferedImage image, int[][] lightness){
+        for (int y = 0; y < lightness.length; y++) {
+            for (int x = 0; x < lightness.length; x++) {
+                int light = lightness[y][x] & 0xFF;
                 image.setRGB(x,y,light << 16 | light << 8 | light);
             }
         }
     }
-
+    /*Метод закраски обзорного изображения
+    Принимает:
+    - Изображение для закраски
+    - Матрицу яркостей
+     Алгоритм работы метода:
+     - Вычисляется значение зума по соотношению
+     размеров матрицы и размеров изображения
+     - Далее берётся каждый zoom-ный пиксель и
+     со сдвигом 2 закрашивает изображение
+    */
     public static void paintOverviewImage(BufferedImage image, int[][] lightness){
         int height = image.getHeight();
         int width = image.getWidth();
@@ -152,7 +180,14 @@ public class ZoomProcessor {
         }
         ImageTester.writeImageToFile(image, "overview");
     }
+    /*Метод реализующий линейную интерполяцию*/
+    static double linierInterpolation(double x1, double y1, double x2, double y2, double x){
+        return (x - x1) * (y2 - y1) / (x2 - x1) + y1;
+    }
 
+}
+
+class ZoomProcessorTest{
     public static void main(String[] args){
         int[][] pixels = new int[][]{
                 {0,0,0,0,0},
@@ -167,10 +202,10 @@ public class ZoomProcessor {
         int I22 = 200;
         printMatrix(pixels);
         for (int y = 0; y < pixels.length; y++) {
-            pixels[y][0] = (int)(YbyXlinierInterpolation(0, I11, 5, I21, y));
-            pixels[y][pixels.length - 1] = (int)(YbyXlinierInterpolation(0, I12, 5, I22, y));
+            pixels[y][0] = (int)(linierInterpolation(0, I11, 5, I21, y));
+            pixels[y][pixels.length - 1] = (int)(linierInterpolation(0, I12, 5, I22, y));
             for (int x = 1; x < pixels[y].length - 1; x++) {
-                pixels[y][x] = (int)(YbyXlinierInterpolation(0, pixels[y][0], 4, pixels[y][pixels.length - 1], x));
+                pixels[y][x] = (int)(linierInterpolation(0, pixels[y][0], 4, pixels[y][pixels.length - 1], x));
             }
         }
         printMatrix(pixels);
@@ -180,14 +215,6 @@ public class ZoomProcessor {
             }
         }
         ImageTester.writeImageToFile(ImageTester.createImage(pixels), "interpolating");
-    }
-
-    private static double YbyXlinierInterpolation(double x1, double y1, double x2, double y2, double x){
-        return (x - x1) * (y2 - y1) / (x2 - x1) + y1;
-    }
-
-    private static double XbyYlinierInterpolation(double x1, double y1, double x2, double y2, double y){
-        return (y - y1) * (x2 - x1 )/(y2 - y1) + x1;
     }
     private static void printMatrix(int[][] matrix){
         for (int i = 0; i < matrix.length; i++) {

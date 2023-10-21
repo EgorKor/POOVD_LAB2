@@ -57,30 +57,24 @@ public class GUI extends JFrame {
     private JLabel zoomedImageLabel;
     private JRadioButton wasChosenBeforeButton;
     /*Переменные для логики приложения*/
-    private boolean isFileLoaded;
-    private boolean isInterpolating;
-    private boolean isNormalisation;
-    private int[][] lightnessMatrix;
-    private int imageHeight;
-    private int imageWidth;
-    private int[][] zoomBox;
-    private int zoomBoxSize;
-    private BufferedImage image;
-    private ImageIcon imageIcon;
-
-
-    private BufferedImage zoomedImage;
-    private ImageIcon zoomedImageIcon;
-
-
-
-    private int[] zoomValues;
-    private int zoomIndex;
-
-    private BufferedImage overviewImage;
-    private ImageIcon overviewImageIcon;
-    private int currentShift;
-    private int currentScrollbarPos;
+    private boolean isFileLoaded;   //Флаг загрузки файла
+    private boolean isInterpolating;//Флаг использования интерполяции
+    private boolean isNormalisation;//Флаг использования нормализации
+    private int[][] lightnessMatrix;//Исходная матрица яркостей
+    private int imageHeight;        //Высота изображения
+    private int imageWidth;         //Ширина изображения
+    private int[][] zoomBox;        //Матрица яркостей увеличиваемого участка
+    private int zoomBoxSize;        //Размер увеличиваемого участка
+    private BufferedImage image;    //Изображение mbv
+    private ImageIcon imageIcon;    //Иконка для изображения mbv
+    private BufferedImage zoomedImage;//Увеличенное изображение
+    private ImageIcon zoomedImageIcon;//Иконка для увеличенного изображения
+    private int[] zoomValues;       //Массив всех возможных значений зума
+    private int zoomIndex;          //Индекс текущего значения зума
+    private BufferedImage overviewImage;//Обзорное изображение
+    private ImageIcon overviewImageIcon;//Иконка обзорного изображения
+    private int currentShift;       //Значение сдвига
+    private int currentScrollbarPos;//Значение прокрута скроллбара
 
     public GUI() {
         zoomIndex = 0;
@@ -159,14 +153,12 @@ public class GUI extends JFrame {
                         x = Integer.parseInt(xValueLabel.getText());
                         if(x + zoomBoxSize < imageWidth - 1 && y + zoomBoxSize < imageHeight - 1){
                             ZoomProcessor.fillZoomBox(zoomBox,lightnessMatrix,
-                                    y, x,
-                                    zoomValues[zoomIndex]);
+                                    y, x);
                             if(isNormalisation){
                                 ZoomProcessor.paintZoomedImageWithNormalisation(zoomedImage, zoomBox, zoomValues[zoomIndex], isInterpolating);
                             }else{
                                 ZoomProcessor.paintZoomedImageWithShift(zoomedImage, zoomBox, zoomValues[zoomIndex],currentShift, isInterpolating);
                             }
-
                             zoomedImageIcon.setImage(zoomedImage);
                             zoomedImagePane.setViewportView(zoomedImageLabel);
                             zoomedImagePane.updateUI();
@@ -250,29 +242,11 @@ public class GUI extends JFrame {
             }
         });
 
-        incrementZoomButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                if(zoomIndex < zoomValues.length - 1){
-                    zoomIndex++;
-                    zoomValueLabel.setText(String.valueOf(zoomValues[zoomIndex]));
-                    zoomBoxSize = ZoomProcessor.ZOOMED_IMAGE_SIZE/zoomValues[zoomIndex];
-                    zoomBox = new int[zoomBoxSize][zoomBoxSize];
-                    zoomedImage = new BufferedImage(zoomBoxSize * zoomValues[zoomIndex], zoomBoxSize * zoomValues[zoomIndex], BufferedImage.TYPE_3BYTE_BGR );
-                }
-            }
+        incrementZoomButton.addActionListener(e -> {
+            decrementZoom();
         });
-        decrementZoomButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                if (zoomIndex > 0) {
-                    zoomIndex--;
-                    zoomValueLabel.setText(String.valueOf(zoomValues[zoomIndex]));
-                    zoomBoxSize = ZoomProcessor.ZOOMED_IMAGE_SIZE/zoomValues[zoomIndex];
-                    zoomBox = new int[zoomBoxSize][zoomBoxSize];
-                    zoomedImage = new BufferedImage(zoomBoxSize * zoomValues[zoomIndex], zoomBoxSize * zoomValues[zoomIndex], BufferedImage.TYPE_3BYTE_BGR );
-                }
-            }
+        decrementZoomButton.addActionListener(e -> {
+            incrementZoom();
         });
         normRadioButton.addActionListener(new ActionListener() {
             @Override
@@ -286,6 +260,26 @@ public class GUI extends JFrame {
                 isInterpolating = interpolRadioButton.isSelected();
             }
         });
+    }
+
+    private void incrementZoom(){
+        if (zoomIndex > 0) {
+            zoomIndex--;
+            zoomValueLabel.setText(String.valueOf(zoomValues[zoomIndex]));
+            zoomBoxSize = ZoomProcessor.ZOOMED_IMAGE_SIZE/zoomValues[zoomIndex];
+            zoomBox = new int[zoomBoxSize][zoomBoxSize];
+            zoomedImage = new BufferedImage(zoomBoxSize * zoomValues[zoomIndex], zoomBoxSize * zoomValues[zoomIndex], BufferedImage.TYPE_3BYTE_BGR );
+        }
+    }
+
+    private void decrementZoom(){
+        if(zoomIndex < zoomValues.length - 1){
+            zoomIndex++;
+            zoomValueLabel.setText(String.valueOf(zoomValues[zoomIndex]));
+            zoomBoxSize = ZoomProcessor.ZOOMED_IMAGE_SIZE/zoomValues[zoomIndex];
+            zoomBox = new int[zoomBoxSize][zoomBoxSize];
+            zoomedImage = new BufferedImage(zoomBoxSize * zoomValues[zoomIndex], zoomBoxSize * zoomValues[zoomIndex], BufferedImage.TYPE_3BYTE_BGR );
+        }
     }
 
     private void showImageOnUI() {
@@ -341,5 +335,4 @@ public class GUI extends JFrame {
         gui.setTitle("ПООВД");
         gui.setVisible(true);
     }
-
 }

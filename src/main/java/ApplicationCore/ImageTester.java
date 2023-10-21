@@ -11,20 +11,6 @@ import java.util.Arrays;
 
 public class ImageTester {
     public static void main(String[] args){
-        /*writeImageToFile(createImage(ZoomProcessor.createZoomBox(createTestMBVLightnessMatrix(), 0,0,4))
-                , "zoomedBox");
-        BufferedImage image = new BufferedImage(400, 400, BufferedImage.TYPE_3BYTE_BGR);
-        ZoomProcessor.paintZoomedImage(image,
-                ZoomProcessor.createZoomBox(createTestMBVLightnessMatrix(), 0, 0, 4),
-                4);*/
-//        writeImageToFile(image, "zoomedImage");
-//        writeImageToFile(, "zoomedImage");
-        int[][] ints = new int[][]{
-                {1,2,3},
-                {5,6,7}
-        };
-        System.out.println(Arrays.stream(ints).flatMapToInt(Arrays::stream).max().getAsInt());
-        System.out.println(Arrays.stream(ints).flatMapToInt(Arrays::stream).min().getAsInt());
     }
 
     public static void writeImageToFile(BufferedImage image, String fileName){
