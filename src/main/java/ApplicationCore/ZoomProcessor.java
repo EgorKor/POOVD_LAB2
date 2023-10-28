@@ -76,6 +76,7 @@ public class ZoomProcessor {
         int max = Arrays.stream(zoomLightness).flatMapToInt(Arrays::stream).max().getAsInt();
         int imageHeight = image.getHeight();
         int imageWidth = image.getWidth();
+        //Создание матрицы яркостей будущего изображения
         int[][] lightnessMatrix = new int[imageHeight][imageWidth];
         double k = 255.0 / (max - min);
         /*Блок заполнения матрицы ргб кодов с нормализацией*/
@@ -123,9 +124,9 @@ public class ZoomProcessor {
                 I22 = lightnessMatrix[y + zoom][x + zoom];
                 for (int yInner = y; yInner < y + zoom; yInner++) {
                     lightnessMatrix[yInner][x] = (int)(linierInterpolation(0, I11 , zoom, I21, yInner - y));
-                    lightnessMatrix[yInner][x + zoom - 1] = (int)(linierInterpolation(0, I12, zoom, I22, yInner - y));
-                    for (int xInner = x + 1; xInner < x + zoom - 1; xInner++) {
-                        lightnessMatrix[yInner][xInner] = (int) linierInterpolation(0, lightnessMatrix[yInner][x], zoom - 1, lightnessMatrix[yInner][x + zoom - 1], xInner - x) ;
+                    int tempI = (int)(linierInterpolation(0, I12, zoom, I22, yInner - y));
+                    for (int xInner = x + 1; xInner < x + zoom; xInner++) {
+                        lightnessMatrix[yInner][xInner] = (int) linierInterpolation(0, lightnessMatrix[yInner][x], zoom, tempI, xInner - x) ;
                     }
                 }
             }
@@ -137,7 +138,7 @@ public class ZoomProcessor {
                 }
             }
         }
-        //интерполирование нижней полоскию
+        //интерполирование нижней полоски
         for (x = 0; x < lightnessMatrix.length - zoom; x+= zoom) {
             for (int yInner = y; yInner < y + zoom; yInner++) {
                 for (int xInner = x + 1; xInner < x + zoom; xInner++) {
@@ -196,16 +197,16 @@ class ZoomProcessorTest{
                 {0,0,0,0,0},
                 {0,0,0,0,0},
         };
-        int I11 = 220;
-        int I12 = 250;
-        int I21 = 150;
-        int I22 = 200;
+        int I11 = 0;
+        int I12 = 127;
+        int I21 = 127;
+        int I22 = 255;
         printMatrix(pixels);
         for (int y = 0; y < pixels.length; y++) {
             pixels[y][0] = (int)(linierInterpolation(0, I11, 5, I21, y));
-            pixels[y][pixels.length - 1] = (int)(linierInterpolation(0, I12, 5, I22, y));
-            for (int x = 1; x < pixels[y].length - 1; x++) {
-                pixels[y][x] = (int)(linierInterpolation(0, pixels[y][0], 4, pixels[y][pixels.length - 1], x));
+            int sideI = (int)(linierInterpolation(0, I12, 5, I22, y));
+            for (int x = 1; x < pixels[y].length; x++) {
+                pixels[y][x] = (int)(linierInterpolation(0, pixels[y][0], 5, sideI, x));
             }
         }
         printMatrix(pixels);

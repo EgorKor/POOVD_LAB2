@@ -7,6 +7,7 @@ import ApplicationCore.ZoomProcessor;
 import org.apache.commons.io.IOUtils;
 
 import javax.swing.*;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
@@ -55,7 +56,7 @@ public class GUI extends JFrame {
     private JLabel imageLabel;
     private JLabel overviewImageLabel;
     private JLabel zoomedImageLabel;
-    private JRadioButton wasChosenBeforeButton;
+    private JRadioButton clickedButton;
     /*Переменные для логики приложения*/
     private boolean isFileLoaded;   //Флаг загрузки файла
     private boolean isInterpolating;//Флаг использования интерполяции
@@ -73,15 +74,15 @@ public class GUI extends JFrame {
     private int zoomIndex;          //Индекс текущего значения зума
     private BufferedImage overviewImage;//Обзорное изображение
     private ImageIcon overviewImageIcon;//Иконка обзорного изображения
-    private int currentShift;       //Значение сдвига
+    private int shift;       //Значение сдвига
     private int currentScrollbarPos;//Значение прокрута скроллбара
 
     public GUI() {
         zoomIndex = 0;
-        zoomValues = new int[]{1,2,3,4,5,6,7,8,9,10, 20, 30, 40, 50};
-        zoomBoxSize = ZoomProcessor.ZOOMED_IMAGE_SIZE/zoomValues[zoomIndex];
+        zoomValues = new int[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 40, 50};
+        zoomBoxSize = ZoomProcessor.ZOOMED_IMAGE_SIZE / zoomValues[zoomIndex];
         zoomBox = new int[zoomBoxSize][zoomBoxSize];
-        overviewImage = new BufferedImage(100,600, BufferedImage.TYPE_3BYTE_BGR);
+        overviewImage = new BufferedImage(100, 600, BufferedImage.TYPE_3BYTE_BGR);
         zoomedImage = new BufferedImage(zoomBoxSize * zoomValues[zoomIndex], zoomBoxSize * zoomValues[zoomIndex], BufferedImage.TYPE_3BYTE_BGR);
         imageScrollPane.getVerticalScrollBar().setUnitIncrement(100);
         imageLabel = new JLabel();
@@ -98,7 +99,7 @@ public class GUI extends JFrame {
         group.add(a1RadioButton);
         group.add(a2RadioButton);
         a0RadioButton.setSelected(true);
-        wasChosenBeforeButton = a0RadioButton;
+        clickedButton = a0RadioButton;
         imageScrollPane.getVerticalScrollBar().addAdjustmentListener(
                 e -> currentScrollbarPos = e.getValue()
         );
@@ -109,8 +110,8 @@ public class GUI extends JFrame {
                 if (!String.valueOf(pressedKey).matches("[0-9]")) {
                     e.consume();
                 }
-                if (scrollStepTextArea.getText().contains("\n")) {
-                    scrollStepTextArea.setText(scrollStepTextArea.getText().replaceAll("\n", ""));
+                if (scrollStepTextArea.getText().contains("\n") || scrollStepTextArea.getText().contains("\t")) {
+                    scrollStepTextArea.setText(scrollStepTextArea.getText().replaceAll("[\n\t]", ""));
                 }
             }
         });
@@ -138,7 +139,7 @@ public class GUI extends JFrame {
                     if (mousePosition != null) {
                         int x = mousePosition.x;
                         int y = mousePosition.y;
-                        if (x  < imageWidth)
+                        if (x < imageWidth)
                             xValueLabel.setText(String.valueOf(x));
                         if (y + currentScrollbarPos < imageHeight) {
                             yValueLabel.setText(String.valueOf(y + currentScrollbarPos));
@@ -151,13 +152,13 @@ public class GUI extends JFrame {
                         }
                         y = Integer.parseInt(yValueLabel.getText());
                         x = Integer.parseInt(xValueLabel.getText());
-                        if(x + zoomBoxSize < imageWidth - 1 && y + zoomBoxSize < imageHeight - 1){
-                            ZoomProcessor.fillZoomBox(zoomBox,lightnessMatrix,
+                        if (x + zoomBoxSize < imageWidth - 1 && y + zoomBoxSize < imageHeight - 1) {
+                            ZoomProcessor.fillZoomBox(zoomBox, lightnessMatrix,
                                     y, x);
-                            if(isNormalisation){
+                            if (isNormalisation) {
                                 ZoomProcessor.paintZoomedImageWithNormalisation(zoomedImage, zoomBox, zoomValues[zoomIndex], isInterpolating);
-                            }else{
-                                ZoomProcessor.paintZoomedImageWithShift(zoomedImage, zoomBox, zoomValues[zoomIndex],currentShift, isInterpolating);
+                            } else {
+                                ZoomProcessor.paintZoomedImageWithShift(zoomedImage, zoomBox, zoomValues[zoomIndex], shift, isInterpolating);
                             }
                             zoomedImageIcon.setImage(zoomedImage);
                             zoomedImagePane.setViewportView(zoomedImageLabel);
@@ -171,39 +172,36 @@ public class GUI extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 JFileChooser fileOpen = new JFileChooser();
-                int ret = fileOpen.showDialog(null, "Открыть файл");
-                if (ret == JFileChooser.APPROVE_OPTION) {
+                fileOpen.setFileFilter(new FileNameExtensionFilter("mbv files", "mbv"));
+                int state = fileOpen.showDialog(null, "Открыть файл");
+                if (state == JFileChooser.APPROVE_OPTION) {
                     File file = fileOpen.getSelectedFile();
-                    if (file.getName().matches(".+\\.mbv")) {
-                        loadedFileNameLabel.setText(file.getName());
-                        try {
-                            /*Считываем байты из массива*/
-                            byte[] fileData = IOUtils.
-                                    toByteArray(new FileInputStream(file.getAbsoluteFile().toString()));
-                            /*Создаём матрицу яркостей из массива байтов*/
-                            lightnessMatrix = createMatrix(fileData);
-                            isFileLoaded = true;
-                            /*Задаём высоту и ширину будущей картинки*/
-                            imageHeight = lightnessMatrix.length;
-                            imageWidth = lightnessMatrix[0].length;
-                            /*Создаём объект картинки, которую потом будем перерисовывать*/
-                            image = new BufferedImage(imageWidth, imageHeight, BufferedImage.TYPE_3BYTE_BGR);
-                            drawImageWithShift(currentShift);
-                            /*отображение картинки в интерфейсе*/
+                    loadedFileNameLabel.setText(file.getName());
+                    try {
+                        /*Считываем байты из массива*/
+                        byte[] fileData = IOUtils.
+                                toByteArray(new FileInputStream(file.getAbsoluteFile().toString()));
+                        /*Создаём матрицу яркостей из массива байтов*/
+                        lightnessMatrix = createMatrix(fileData);
+                        isFileLoaded = true;
+                        /*Задаём высоту и ширину будущей картинки*/
+                        imageHeight = lightnessMatrix.length;
+                        imageWidth = lightnessMatrix[0].length;
+                        /*Создаём объект картинки, которую потом будем перерисовывать*/
+                        image = new BufferedImage(imageWidth, imageHeight, BufferedImage.TYPE_3BYTE_BGR);
+                        drawImageWithShift(shift);
+                        /*отображение картинки в интерфейсе*/
 
-                            ZoomProcessor.paintOverviewImage(overviewImage, lightnessMatrix);
-                            showImageOnUI();
-                        } catch (IOException exception) {
-                            exception.printStackTrace();
-                            StringBuilder exceptionMessage = new StringBuilder();
-                            StackTraceElement[] stackTrace = exception.getStackTrace();
-                            for (StackTraceElement element : stackTrace) {
-                                exceptionMessage.append(element).append("\n");
-                            }
-                            showMessageDialog(null, "Ошибка!!!\n" + exceptionMessage);
+                        ZoomProcessor.paintOverviewImage(overviewImage, lightnessMatrix);
+                        showImageOnUI();
+                    } catch (IOException exception) {
+                        exception.printStackTrace();
+                        StringBuilder exceptionMessage = new StringBuilder();
+                        StackTraceElement[] stackTrace = exception.getStackTrace();
+                        for (StackTraceElement element : stackTrace) {
+                            exceptionMessage.append(element).append("\n");
                         }
-                    } else {
-                        showMessageDialog(null, "Ошибка - неверный формат файла");
+                        showMessageDialog(null, "Ошибка!!!\n" + exceptionMessage);
                     }
                 }
             }
@@ -211,34 +209,34 @@ public class GUI extends JFrame {
         a0RadioButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                currentShift = 0;
-                if (isFileLoaded && wasChosenBeforeButton != a0RadioButton) {
-                    drawImageWithShift(currentShift);
+                shift = 0;
+                if (isFileLoaded && a0RadioButton != clickedButton) {
+                    drawImageWithShift(shift);
                     showImageOnUI();
                 }
-                wasChosenBeforeButton = a0RadioButton;
+                clickedButton = a0RadioButton;
             }
         });
         a1RadioButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                currentShift = 1;
-                if (isFileLoaded && wasChosenBeforeButton != a1RadioButton) {
-                    drawImageWithShift(currentShift);
+                shift = 1;
+                if (isFileLoaded && a1RadioButton != clickedButton) {
+                    drawImageWithShift(shift);
                     showImageOnUI();
                 }
-                wasChosenBeforeButton = a1RadioButton;
+                clickedButton = a1RadioButton;
             }
         });
         a2RadioButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                currentShift = 2;
-                if (isFileLoaded && wasChosenBeforeButton != a2RadioButton) {
-                    drawImageWithShift(currentShift);
+                shift = 2;
+                if (isFileLoaded && a2RadioButton != clickedButton) {
+                    drawImageWithShift(shift);
                     showImageOnUI();
                 }
-                wasChosenBeforeButton = a2RadioButton;
+                clickedButton = a2RadioButton;
             }
         });
 
@@ -262,23 +260,31 @@ public class GUI extends JFrame {
         });
     }
 
-    private void incrementZoom(){
+    private void incrementZoom() {
         if (zoomIndex > 0) {
             zoomIndex--;
             zoomValueLabel.setText(String.valueOf(zoomValues[zoomIndex]));
-            zoomBoxSize = ZoomProcessor.ZOOMED_IMAGE_SIZE/zoomValues[zoomIndex];
+            zoomBoxSize = ZoomProcessor.ZOOMED_IMAGE_SIZE / zoomValues[zoomIndex];
             zoomBox = new int[zoomBoxSize][zoomBoxSize];
-            zoomedImage = new BufferedImage(zoomBoxSize * zoomValues[zoomIndex], zoomBoxSize * zoomValues[zoomIndex], BufferedImage.TYPE_3BYTE_BGR );
+            zoomedImage = new BufferedImage(zoomBoxSize * zoomValues[zoomIndex], zoomBoxSize * zoomValues[zoomIndex], BufferedImage.TYPE_3BYTE_BGR);
         }
     }
 
-    private void decrementZoom(){
-        if(zoomIndex < zoomValues.length - 1){
+    private boolean isArrEmpty(int[] arr){
+        for (int i = 0; i < arr.length; i++) {
+            if(arr[i] != 0)
+                return true;
+        }
+        return false;
+    }
+
+    private void decrementZoom() {
+        if (zoomIndex < zoomValues.length - 1) {
             zoomIndex++;
             zoomValueLabel.setText(String.valueOf(zoomValues[zoomIndex]));
-            zoomBoxSize = ZoomProcessor.ZOOMED_IMAGE_SIZE/zoomValues[zoomIndex];
+            zoomBoxSize = ZoomProcessor.ZOOMED_IMAGE_SIZE / zoomValues[zoomIndex];
             zoomBox = new int[zoomBoxSize][zoomBoxSize];
-            zoomedImage = new BufferedImage(zoomBoxSize * zoomValues[zoomIndex], zoomBoxSize * zoomValues[zoomIndex], BufferedImage.TYPE_3BYTE_BGR );
+            zoomedImage = new BufferedImage(zoomBoxSize * zoomValues[zoomIndex], zoomBoxSize * zoomValues[zoomIndex], BufferedImage.TYPE_3BYTE_BGR);
         }
     }
 
@@ -317,7 +323,7 @@ public class GUI extends JFrame {
                 int lightness = (newRangeMaxDiffCurrentRangeMin * lightnessMatrix[y][x])
                         / maxCurrentRangeDiffMinCurrentRange + currentRangeMin;
                 int rgb = (0b11111111 << 24) | (lightness << 16) | (lightness << 8) | lightness;
-                image.setRGB(x,y,rgb);
+                image.setRGB(x, y, rgb);
             }
         }
 
