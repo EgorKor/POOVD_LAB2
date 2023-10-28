@@ -122,11 +122,15 @@ public class ZoomProcessor {
                 I12 = lightnessMatrix[y][x + zoom];
                 I21 = lightnessMatrix[y + zoom][x] ;
                 I22 = lightnessMatrix[y + zoom][x + zoom];
+                double d = I11;
+                double a = I12 - d;
+                double b = I21 - d;
+                double c = I22 - a - b - d;
                 for (int yInner = y; yInner < y + zoom; yInner++) {
-                    lightnessMatrix[yInner][x] = (int)(linierInterpolation(0, I11 , zoom, I21, yInner - y));
-                    int tempI = (int)(linierInterpolation(0, I12, zoom, I22, yInner - y));
-                    for (int xInner = x + 1; xInner < x + zoom; xInner++) {
-                        lightnessMatrix[yInner][xInner] = (int) linierInterpolation(0, lightnessMatrix[yInner][x], zoom, tempI, xInner - x) ;
+                    double yLocal = (double) (yInner - y) / zoom;
+                    for (int xInner = x; xInner < x + zoom; xInner++) {
+                        double xLocal = (double) (xInner - x) / zoom;
+                        lightnessMatrix[yInner][xInner] = (int) (a * xLocal + b * yLocal + c * xLocal * yLocal + d);
                     }
                 }
             }
